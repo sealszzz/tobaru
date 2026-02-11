@@ -1,0 +1,90 @@
+name: Build shoes x86_64 GNU (latest master)
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build x86_64-unknown-linux-gnu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout cfal/shoes (latest master)
+        uses: actions/checkout@v4
+        with:
+          repository: cfal/shoes
+          ref: master
+          fetch-depth: 1
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: |
+          cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Verify
+        run: |
+          set -e
+          BIN="target/x86_64-unknown-linux-gnu/release/shoes"
+          test -f "$BIN"
+          ls -la "$BIN"
+          file "$BIN" || true
+          "$BIN" --help || true
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cp target/x86_64-unknown-linux-gnu/release/shoes artifacts/shoes
+
+          # strip to reduce size (optional)
+          if command -v strip >/dev/null 2>&1; then
+            strip artifacts/shoes || true
+          fi
+
+          tar -C artifacts -czf shoes-x86_64-unknown-linux-gnu.tar.gz shoes
+          ls -la *.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shoes-x86_64-unknown-linux-gnu
+          path: shoes-x86_64-unknown-linux-gnu.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: shoes-x86_64-unknown-linux-gnu
+          path: release-artifacts
+
+      - name: List
+        run: ls -la release-artifacts/
+
+      - name: Create Release (draft)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*.tar.gz
+          draft: true
+          generate_release_notes: true
