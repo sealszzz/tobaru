@@ -1,4 +1,4 @@
-name: Build shoes
+name: build-shoes
 on:
   push:
     branches: [ master ]
