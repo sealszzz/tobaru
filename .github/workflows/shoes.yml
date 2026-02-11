@@ -1,5 +1,4 @@
-name: Build shoes x86_64 GNU (latest master)
-
+name: Build shoes
 on:
   push:
     branches: [ master ]
