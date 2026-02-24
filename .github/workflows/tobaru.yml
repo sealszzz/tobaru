@@ -49,21 +49,27 @@ jobs:
           targets: ${{ matrix.target }}
 
       - if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: cargo install cross --locked
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-aarch64-linux-gnu
+          cargo install cross --locked
 
       - working-directory: tobaru
         run: |
           set -euo pipefail
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
             cross build --release --target ${{ matrix.target }}
+            STRIP_CMD="aarch64-linux-gnu-strip"
           else
             cargo build --release --target ${{ matrix.target }}
+            STRIP_CMD="strip"
           fi
 
           BIN="target/${{ matrix.target }}/release/tobaru"
           test -f "$BIN"
 
           cp "$BIN" tobaru
+          $STRIP_CMD tobaru 2>/dev/null || true
 
           tar -czf "tobaru-${{ matrix.target }}-${{ steps.tag.outputs.tag }}.tar.gz" tobaru
 
